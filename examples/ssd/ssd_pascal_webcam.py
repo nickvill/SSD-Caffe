@@ -99,7 +99,9 @@ resize_height = 300
 # Set the number of test iterations to the maximum integer number.
 test_iter = int(math.pow(2, 29) - 1)
 # Use GPU or CPU
-solver_mode = P.Solver.GPU
+# solver_mode = P.Solver.GPU
+# solver_mode = P.Solver.CPU
+solver_mode = None 
 # Defining which GPUs to use.
 gpus = "0"
 # Number of frames to be processed per batch.
@@ -176,6 +178,7 @@ job_file = "{}/{}.sh".format(job_dir, model_name)
 
 # Find most recent snapshot.
 max_iter = 0
+model_iter  ="41566"
 for file in os.listdir(snapshot_dir):
   if file.endswith(".caffemodel"):
     basename = os.path.splitext(file)[0]
@@ -188,7 +191,7 @@ if max_iter == 0:
   sys.exit()
 
 # The resume model.
-pretrain_model = "{}_iter_{}.caffemodel".format(snapshot_prefix, max_iter)
+pretrain_model = "{}_iter_{}.caffemodel".format(snapshot_prefix, model_iter)
 
 # parameters for generating priors.
 # minimum dimension of input image
