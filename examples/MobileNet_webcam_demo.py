@@ -79,6 +79,7 @@ def detect(imgfile):
 
 frames2count = 60
 count = 0 
+desired_fps = 20
 
 while(True):
 
@@ -93,7 +94,7 @@ while(True):
 		detect(frame)
 		end_comp = time.time()
 
-		sleep_time = 0.1 - (end_comp - start_comp)
+		sleep_time = (1./desired_fps) - (end_comp - start_comp)
 		time.sleep(abs(sleep_time))
 
 		count += 1
