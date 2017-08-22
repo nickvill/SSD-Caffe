@@ -4,7 +4,16 @@ import cv2
 caffe_root = '/home/nick/caffe/'
 # sys.path.insert(0, caffe_root + 'python')  
 import caffe  
+from caffe.model_libs import *
+from google.protobuf import text_format
 import time
+import math
+import shutil 
+import stat
+import subprocess 
+
+caffe.set_device(0)
+caffe.set_mode_gpu()
 
 cap = cv2.VideoCapture(0)
 
@@ -18,7 +27,12 @@ if not os.path.exists(caffe_model):
 	print("MobileNetSSD_deploy.caffemodel does not exist,")
 	print("use merge_bn.py to generate it.")
 	exit()
+
+# solver_mode = P.Solver.GPU
+# gpus = '0'
 net = caffe.Net(net_file,caffe_model,caffe.TEST)  
+
+
 
 CLASSES = ('background',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -63,7 +77,7 @@ def detect(imgfile):
     	cv2.putText(imgfile, title, p3, cv2.FONT_ITALIC, 0.6, (0, 255, 0), 1)
     cv2.imshow("SSD", imgfile)
 
-frames2count = 120
+frames2count = 60
 count = 0 
 
 while(True):
@@ -72,13 +86,19 @@ while(True):
 		start = time.time()
 
 	if cap.grab():
+		
 		ret, frame = cap.retrieve()
-		detect(frame)
-		count += 1
 
-	# ret, frame = cap.read()
+		start_comp = time.time()
+		detect(frame)
+		end_comp = time.time()
+
+		sleep_time = 0.1 - (end_comp - start_comp)
+		time.sleep(abs(sleep_time))
+
+		count += 1
 	
-	if count == 120:
+	if count == frames2count:
 		end = time.time()
 		seconds = end - start
 		fps = frames2count/seconds
