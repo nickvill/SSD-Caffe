@@ -1,0 +1,84 @@
+<launch>
+  <arg name="load_params" default="false" />
+  <arg name="launch_nodelet_manager"  default="false" />
+  <arg name="manager"                 default="nodelet_manager" />
+  <arg name="nodelet_namespace"       default="flight" />
+
+  <arg name="use_realsense"           default="true" />
+  <arg name="max_realsense_range"     default="15.0" />
+
+  <arg name="use_depthest"            default="false" />
+  <arg name="use_blob_detector"       default="true" />
+
+  <arg name="depthest_image"          default="/flea3/image_raw" />
+
+  <!-- Launch nodelet manager if necessary -->
+  <node if="$(arg launch_nodelet_manager)" pkg="nodelet" ns="$(arg nodelet_namespace)" type="nodelet" name="$(arg manager)" args="manager"
+        output="screen" >
+    <param name="num_worker_threads" value="8" />
+  </node>
+
+  <!-- Laserscan to pointcloud converter -->
+  <node pkg="fla_utils" type="laserscan_to_pointcloud" name="laserscan_to_pointcloud" >
+    <remap from="/laserscan_to_pointcloud/scan_in"       to="/scan" />
+    <param name="fla_process_id"    value="34" />
+    <param name="use_negative_info" value="false" />
+  </node>
+
+  <!-- Downsample, filter, and project pointcloud -->
+  <group if="$(arg use_realsense)"  ns="$(arg nodelet_namespace)" >
+    <arg name="camera" value="r200" />
+
+    <!-- median filter -->
+    <node pkg="nodelet" type="nodelet" name="$(arg camera)_depth_median_filt" args="load fla_utils/median_filter $(arg manager)">
+      <remap from="image_raw" to="$(arg camera)/depth/image_raw" />
+      <remap from="image_filt" to="$(arg camera)/depth_red/image_filt" />
+
+      <param name="aperture_size" value="7" />
+      <param name="stride" value="4" />
+      <param name="ignore_val" value="0" />
+      <param name="queue_size" value="5" />
+    </node>
+
+    <!-- rectify -->
+    <node pkg="nodelet" type="nodelet" name="$(arg camera)_depth_image_rect" args="load image_proc/rectify $(arg manager)" >
+      <remap from="camera_info" to="$(arg camera)/depth_red/camera_info" />
+      <remap from="image_mono" to="$(arg camera)/depth_red/image_filt" />
+      <remap from="image_rect" to="$(arg camera)/depth_red/image_rect" />
+    </node>
+
+    <!-- project to pointcloud -->
+    <node pkg="nodelet" type="nodelet" name="depth_point_cloud" args="load depth_image_proc/point_cloud_xyz $(arg manager)" >
+      <remap from="camera_info" to="$(arg camera)/depth_red/camera_info" />
+      <remap from="image_rect" to="$(arg camera)/depth_red/image_rect" />
+      <remap from="points" to="$(arg camera)/points_xyz" />
+    </node>
+
+    <!-- Run a passthrough filter to enforce max range -->
+    <node pkg="nodelet" type="nodelet" name="$(arg camera)_passthrough" args="load pcl/PassThrough $(arg manager)">
+      <remap from="~input" to="$(arg camera)/points_xyz" />
+      <remap from="~output" to="$(arg camera)/points_xyz_filt" />
+      
+      <param name="filter_field_name" value="z" />
+      <param name="filter_limit_min" value="0.25" />
+      <param name="filter_limit_max" value="$(arg max_realsense_range)" />
+      <param name="filter_limit_negative" value="False" />
+    </node>
+  </group>
+
+  <include if="$(arg use_depthest)"
+           file="$(find depthest_ros)/launch/flame_nodelet.launch">
+    <arg name="standalone" value="true" />
+    <arg name="load_params" value="$(arg load_params)" />
+    <!-- arg name="manager" value="$(arg manager)" -->
+    <!-- arg name="namespace" value="$(arg nodelet_namespace)" -->
+
+    <arg name="image" value="$(arg depthest_image)" />
+    <arg name="keyframes" value="/samros/keyposes" />
+    <arg name="param_file" value="flame_fla.yaml" />
+  </include>
+
+  <!-- Object Detection -->
+  <node name="throttle" pkg="object_detection" type="throttle.sh" />
+  <node name="MobileNetSSD" pkg="object_detection" type="MobileNet_ObjDet.py" />
+</launch>
