@@ -1,0 +1,4 @@
+<launch>
+	<node name="throttle" pkg="object_detection" type="throttle.sh" />
+	<node name="MobileNetSSD" pkg="object_detection" type="MobileNet_ObjDet.py" />
+</launch>
